@@ -77,7 +77,7 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     
     # Humanoid model
-    humanoid_path       = 'urdf/smpl_human.urdf'
+    humanoid_path       = 'common/smpl_human.urdf'
     humanoid            = rbdl.loadModel(humanoid_path.encode(), floating_base=True)
     qd_size             = humanoid.qdot_size
     

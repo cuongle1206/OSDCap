@@ -1,6 +1,6 @@
 
 <div align="center">
-<img src="Figures/Teaser.png" width="1000" alt="logo"/>
+<img src="Figures/Teaser.png" width="500" alt="logo"/>
 </div>
 
 # Official Implementation of OSDCap
@@ -19,36 +19,78 @@ Optimal-State Dynamics Estimation for Physics-based Human Motion Capture from Vi
 
 ## Installation
 
-- Install and run TRACE on a specific dataset (https://github.com/Arthur151/ROMP/tree/master/simple_romp/trace2). We recommend create a separate Conda environment to do this. Otherwise, the pre-extracted kinematics from TRACE can be download from ...
+Follow the instruction from [TRACE](https://github.com/Arthur151/ROMP/tree/master/simple_romp/trace2) to install and extract the initial kinematics estimations from input videos. We recommend create a separate Conda environment to do this. Otherwise, the pre-extracted kinematics from TRACE can be downloaded from ...
 
-- Build and install from source RBDL with Python binding from https://github.com/rbdl/rbdl. Please refer to our instruction to install RBDL without root-privilege. 
+Build and install from source with Python binding from [RBDL](https://github.com/rbdl/rbdl). If you don't have root-privilege (such as when working on remote server), please refer to [this instruction](RBDL_install.md). 
 
-- To install our dependencies
+To install OSDCap's dependencies
 
-        pip install -r requirements.txt
+```
+pip install -r requirements.txt
+```
 
 ## Experiments
 
-- To generate ground truth data for Human 3.6M, transform them to friendlier format. The processed data will locate in datasets/h36m/processed/
+### Extraction of Human 3.6M ground truth
+Generate ground truth data for Human 3.6M by transforming them to friendlier format. Please log in and download the annotation of Human 3.6M from [here](http://vision.imar.ro/human3.6m/description.php). We based our extracting and processing code on [h36m-fetch](https://github.com/anibali/h36m-fetch).
 
-        cd datasets/h36m/
-        python process_extracted.py -p "your-h36m-directory"
-        cd ../..
+Your h36m directory should look similar to this after the extraction:
 
-- To generate the training and testing database for OSDCap
+```
+|-- extracted
+|   |-- S1
+|   |   |-- Poses_D2_Positions
+|   |   |-- Poses_D3_Angles
+|   |   |-- Poses_D2_Angles_mono
+|   |   |-- Poses_D3_Positions
+|   |   |-- Poses_D3_Positions_mono
+|   |   |-- Poses_D3_Positions_mono_universal
+|   |   |-- Poses_RawAngles
+|   |   |-- Videos
+|   |-- S5
+|   |-- S6
+|   |-- ...
+|   |-- S11
+```
 
-        python data_gen.py -dst h36m
-        python data_gen.py -dst fit3d
-        python data_gen.py -dst sport
+The processed data will locate in datasets/h36m/processed/
+```
+cd datasets/h36m/
+python process_extracted.py -p "your-h36m-directory"
+cd ../..
+```
 
-- To train the networks on a specific dataset
-
-        python main.py -trn -dst h36m
-
-- To test the trained models on a specific dataset
-
-        python main -dst h36m
-
-
+### Generation of training and testing database for OSDCap
+To generate the training and testing database for OSDCap, run data_gen.py
+```
+python data_gen.py -dst h36m
+python data_gen.py -dst fit3d
+python data_gen.py -dst sport
+```
 
 
+To train the networks on a specific dataset
+```
+python main.py -trn -dst h36m
+```
+
+To test the trained models on a specific dataset
+```
+python main.py -dst h36m
+```
+
+## Visualization
+
+
+## Citation
+If you find our work helpful, please cite the paper as
+```bibtex
+@article{le2024_osdcap,
+  title = {Optimal-State Dynamics Estimation for Physics-based Human Motion Capture from Videos},
+  author = {Le, Cuong and Johannson, Viktor and Kok, Manon and Wandt, Bastian},
+  journal = {Arxiv},
+  year = {2024}
+}
+```
+
+## Acknownledgement
