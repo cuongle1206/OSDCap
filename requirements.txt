@@ -1,6 +1,9 @@
-
+imageio==2.27.0
 numpy==1.23.1
+opencv-python==4.8.1.78
 spacepy==0.5.0
 torch==2.2.2
 tqdm==4.66.2
-pytorch3d==0.6.0
+wandb==0.16.6
+--find-links https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu113_pyt1110/download.html
+pytorch3d==0.7.2

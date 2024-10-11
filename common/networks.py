@@ -5,13 +5,13 @@ Architecture of the OSDNet
 
 import torch
 import torch.nn as nn
-from utils import *
-torch.manual_seed(0)
-    
+from common.utils import *
+
 class OSDNet(nn.Module):
     def __init__(self, in_dim, gru_dim, hid_dim, nlayers, out_dim, pd_temp, c_temp, use_osd):
         super().__init__()
         
+        torch.manual_seed(0)
         self.q_size         = q_size
         self.qd_size        = qd_size
         self.gru_dim        = gru_dim
