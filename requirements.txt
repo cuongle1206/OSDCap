@@ -3,3 +3,4 @@ numpy==1.23.1
 spacepy==0.5.0
 torch==2.2.2
 tqdm==4.66.2
+pytorch3d==0.6.0

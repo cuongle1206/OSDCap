@@ -156,7 +156,7 @@ def process_view(out_dir, subject, action, subaction, camera):
 def process_subaction(subject, action, subaction):
     datasets = {}
 
-    out_dir = path.join(current_path, 'ground_truth', subject, metadata.action_names[action] + '-' + subaction)
+    out_dir = path.join(current_path, 'processed', subject, metadata.action_names[action] + '-' + subaction)
     makedirs(out_dir, exist_ok=True)
 
     for camera in tqdm(metadata.camera_ids, ascii=True, leave=False):
