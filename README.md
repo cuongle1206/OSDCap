@@ -1,6 +1,6 @@
 
 <div align="center">
-<img src="Figures/Teaser.png" width="500" alt="logo"/>
+<img src="Figures/Teaser.png" width="800" alt="logo"/>
 </div>
 
 # Official Implementation of OSDCap
@@ -19,9 +19,9 @@ Optimal-State Dynamics Estimation for Physics-based Human Motion Capture from Vi
 
 ## Installation
 
-Follow the instruction from [TRACE](https://github.com/Arthur151/ROMP/tree/master/simple_romp/trace2) to install and extract the initial kinematics estimations from input videos. We recommend create a separate Conda environment to do this. Otherwise, the pre-extracted kinematics from TRACE can be downloaded from ...
+Follow the instruction from [TRACE](https://github.com/Arthur151/ROMP/tree/master/simple_romp/trace2) to install and extract the initial kinematics estimations from input videos. We recommend create a separate Conda environment to do this. Otherwise, the pre-extracted kinematics from TRACE can be downloaded from [here].
 
-Build and install from source with Python binding from [RBDL](https://github.com/rbdl/rbdl). If you don't have root-privilege (such as when working on remote server), please refer to [this instruction](RBDL_install.md). 
+Build and install from source with Python binding from [RBDL](https://github.com/rbdl/rbdl). If you don't have root-privilege (such as when working on remote server), please refer to this [instruction](RBDL_install.md). 
 
 To install OSDCap's dependencies
 
@@ -32,7 +32,7 @@ pip install -r requirements.txt
 ## Experiments
 
 ### Extraction of Human 3.6M ground truth
-Generate ground truth data for Human 3.6M by transforming them to friendlier format. Please log in and download the annotation of Human 3.6M from [here](http://vision.imar.ro/human3.6m/description.php). We based our extracting and processing code on [h36m-fetch](https://github.com/anibali/h36m-fetch).
+Generate ground truth data for Human 3.6M by transforming them to friendlier format. Please log in and download the annotation of Human 3.6M from the official [website](http://vision.imar.ro/human3.6m/description.php). We based our extracting and processing code on [h36m-fetch](https://github.com/anibali/h36m-fetch).
 
 Your h36m directory should look similar to this after the extraction:
 
@@ -61,6 +61,20 @@ cd ../..
 ```
 
 ### Generation of training and testing database for OSDCap
+
+Please put the extracted kinematics from TRACE as following:
+```
+|-- datasets
+|   |-- h36m
+|   |   |-- TRACE_results
+|   |-- fit3d
+|   |   |-- TRACE_results
+|   |-- sport
+|   |   |-- TRACE_results
+```
+But of course you can put them anywhere that is convienient to you and change the path in [here](data_gen.py#15).
+
+
 To generate the training and testing database for OSDCap, run data_gen.py
 ```
 python data_gen.py -dst h36m
