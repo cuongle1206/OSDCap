@@ -19,7 +19,7 @@ Optimal-State Dynamics Estimation for Physics-based Human Motion Capture from Vi
 
 ## Installation
 
-Follow the instruction from [TRACE](https://github.com/Arthur151/ROMP/tree/master/simple_romp/trace2) to install and extract the initial kinematics estimations from input videos. We recommend create a separate Conda environment to do this. Otherwise, the pre-extracted kinematics from TRACE can be downloaded from [here].
+Follow the instruction from [TRACE](https://github.com/Arthur151/ROMP/tree/master/simple_romp/trace2) to install and extract the initial kinematics estimations from input videos. We recommend create a separate Conda environment to do this. Otherwise, the pre-extracted kinematics from TRACE can be downloaded from [here](https://liuonline-my.sharepoint.com/:u:/g/personal/cuole74_liu_se/EbOH95Kh4-VEoLNNPfJaanwBv_CTj8wu99iKR4ZFidVChQ?e=SufmDw).
 
 Build and install from source with Python binding from [RBDL](https://github.com/rbdl/rbdl). If you don't have root-privilege (such as when working on remote server), please refer to this [instruction](RBDL_install.md). 
 

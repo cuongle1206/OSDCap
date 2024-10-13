@@ -1,0 +1,1 @@
+Here put the trained OSDCap on the full SportPose.
