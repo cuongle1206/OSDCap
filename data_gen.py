@@ -10,6 +10,9 @@ import numpy as np
 import torch
 from pytorch3d import transforms
 
+# base_path           = "/proj/cvl/datasets"
+base_path           = "/mimer/NOBACKUP/groups/alvis_cvl/cuole/datasets"
+
 def get_parse():
     parser = argparse.ArgumentParser(description='Database generation for OSDCap experiments') 
     parser.add_argument("-pth", "--base-path", type=str,
