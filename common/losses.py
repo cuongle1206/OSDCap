@@ -4,7 +4,7 @@
 import torch.nn as nn
 import torch
 from pytorch3d import transforms
-from utils import get_rot_quat, get_pose_error
+from common.utils import get_rot_quat, get_pose_error
 
 device          = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 loss_fn         = nn.L1Loss(reduction='sum')    # L1 dist

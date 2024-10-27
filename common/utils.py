@@ -37,7 +37,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("Using GPU: " + torch.cuda.get_device_name(device=device))
-humanoid            = rbdl.loadModel("urdf/smpl_human.urdf", floating_base=True)
+humanoid            = rbdl.loadModel("common/smpl_human.urdf", floating_base=True)
 humanoid.gravity    = [0, 0, -9.81]
 q_size              = humanoid.q_size
 qd_size             = humanoid.qdot_size

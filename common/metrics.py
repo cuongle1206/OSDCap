@@ -3,7 +3,7 @@
 
 import argparse
 import torch
-from utils import *
+from common.utils import *
 interest_joints_gt = j17_ids_gt
 interest_joints_pr = j17_ids_pr
 
