@@ -5,7 +5,7 @@
 
 # Official Implementation of OSDCap
 
-Optimal-State Dynamics Estimation for Physics-based Human Motion Capture from Videos
+Optimal-state Dynamics Estimation for Physics-based Human Motion Capture from Videos
 
 [![Paper](https://img.shields.io/badge/arXiv-2410.07795-red)](https://arxiv.org/abs/2410.07795)
 ... Inprogress ...
