@@ -233,7 +233,7 @@ if __name__ == "__main__":
                     print(("Processing AISTpp" + ", Action: "   + action_names[action_id]))
                 
                 if args.database == "sport":
-                    data_path   = (base_path + "/sport/TRACE_results/"
+                    data_path   = (base_path + "/SportsPose/TRACE_results/"
                                    + "indoors/"
                                    + subject_names[subject_id] + "/"
                                    + action_names[action_id] + "/" 

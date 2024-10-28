@@ -64,9 +64,7 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
         
         # Setting up optimizer
         print('--- Setting up optimizer. ---')
-        if args.dataset == "sport":
-            print(model_path + "_h36m.pth")
-            osdnet.load_state_dict(torch.load(model_path + "_h36m.pth"))
+        if args.dataset == "sport": osdnet.load_state_dict(torch.load("trained_models/h36m/full/OSDNet.pth"))
         osdnet.train()
         optimizer       = torch.optim.Adamax(osdnet.parameters(), lr=args.learning_rate)
         scheduler       = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=args.lr_steps, gamma=0.1)
@@ -100,14 +98,14 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
         
         # Rebuttal additions
         total_gp_trace, total_gp_osd = [], []
+        total_gd_trace, total_gd_osd = [], []
         total_v_trace, total_v_osd = [], []
         total_fric_trace, total_fric_osd = [], []
-        total_skate_trace, total_skate_osd = [], []
+        total_fk_trace, total_fk_osd = [], []
         
         result_qh_all, result_q_all, result_qsim_all = [], [], []
         result_ph_all, result_p_all, result_pgt_all = [], [], []
         result_kalman_all, result_minv_all, result_c_all = [], [], []
-        result_extf_all = []
         
         print('--- Testing started! ---')
         print()
@@ -119,7 +117,6 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
             if epoch < args.warm_ups:
                 lr  = args.learning_rate * (epoch + 1) / args.warm_ups
                 for i, param_group in enumerate(optimizer.param_groups): param_group['lr'] = lr
-            # print_log('\tEpoch: {:d}, learning rate: {:.2e}.'.format(epoch+1, optimizer.param_groups[0]['lr']))
             print_log('\t---------- Epoch {:d} ----------'.format(epoch+1))
             print_log('\tTotal epochs: {:d}, LR: {:.2e}'.format(num_epochs, optimizer.param_groups[0]['lr']))
             print_log('\tLearning rate steps at: {:d}, {:d}'.format(lr_steps[0], lr_steps[1]))
@@ -129,16 +126,14 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
         
         # Processing loop
         loss_values     = []
-        loop            = tqdm(enumerate(loader),
-                               total=num_batches,
-                               bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}',
-                               position=0)
+        loop            = tqdm(enumerate(loader), total=num_batches,
+                               bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}', position=0)
+        
         for batch_id, batch in loop:
-            
             # Only train and evaluate on subset of interested keypoints
             if args.dataset == "h36m":  interest_joints = h36m_jids
             if args.dataset == "fit3d": interest_joints = fit3d_jids
-            if args.dataset == "aist":  interest_joints = aist_jids
+            # if args.dataset == "aist":  interest_joints = aist_jids
             if args.dataset == "sport":  interest_joints = sport_jids
 
             # Load TRACE inputs and ground-truth from pre-processes data
@@ -162,13 +157,12 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
             qh_pre          = seq_qh[:,0,:]                                 # qh_{t-1}
             qdd             = torch.zeros((bsize, qd_size)).to(device)      # qdd_{t-1}
             input_offset    = torch.cat((osdnet.offset, torch.zeros(q_size-3).to(device))).unsqueeze(0)
-            qd              = (torch.bmm(osdnet.qd_mapp.repeat((bsize,1,1)),
-                                         get_pose_error(seq_qh[:,1,:], seq_qh[:,0,:]).unsqueeze(-1)).squeeze() + 
-                                osdnet.qd_bias.repeat((bsize,1)).to(device)) # qd_{t-1|t-1}
+            qd              = torch.bmm(osdnet.qd_mapp.repeat((bsize,1,1)),
+                                        get_pose_error(seq_qh[:,1,:], seq_qh[:,0,:]).unsqueeze(-1)).squeeze() + osdnet.qd_bias.repeat((bsize,1)).to(device) # qd_{t-1|t-1}
             q               = normalize_q_quat(torch.bmm(osdnet.q_mapp.repeat((bsize,1,1)),
                                         (seq_qh[:,0,:] + input_offset).unsqueeze(-1)).squeeze()) # q_{t-1|t-1}
             p               = forward_kinematics(bsize, q, osdnet.bone_length)  # [B, V, 3]
-            # p_trace_pre     = forward_kinematics(bsize, q, bone_length_h36m)    # [B, V, 3]
+            p_trace_pre     = forward_kinematics(bsize, q, bone_length_h36m)    # [B, V, 3]
             p_moved         = torch.zeros(bsize, p.shape[1]).to(device)         # [B, V]
             c               = seq_cgt[:,0,:]                                    # [B, 2]
             
@@ -185,12 +179,12 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
             if mode == 'train':
                 p_ra            = (p - p[:,0:1,:])[:,1:,:]
                 pgt_ra          = (seq_pgt[:,0,...] - seq_pgt[:,0,0:1,:])[:,1:,:]
-                # if args.dataset != "sport":
-                #     loss_p          += compute_RA_p_loss(p_ra, pgt_ra) / bsize
-                #     loss_t          += compute_trans_loss(q, seq_qgt[:,0,:]) / bsize
-                # else:
-                #     loss_p          += compute_RA_p_loss(p_ra[:,j17_ids_pr], pgt_ra[:,j17_ids_gt]) / bsize
-                #     loss_t          += compute_trans_loss(q, seq_qgt[:,0,:]) / bsize
+                if args.dataset != "sport":
+                    loss_p          += compute_RA_p_loss(p_ra, pgt_ra) / bsize
+                    loss_t          += compute_trans_loss(p[:,0,:], seq_pgt[:,0,0,:]) / bsize
+                else:
+                    loss_p          += compute_RA_p_loss(p_ra[:,j17_ids_pr[1:]-1], pgt_ra[:,j17_ids_gt[1:]-1]) / bsize
+                    loss_t          += compute_trans_loss(p[:,0,:], seq_pgt[:,0,0,:]) / bsize
             
             # Initialize the accumulated evaluation metrics (testing).
             mpjpe_trace, mpjpe_g_trace, mpjpe_pa_trace, grp_trace, pck_trace    = 0, 0, 0, 0, 0
@@ -200,11 +194,12 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
             result_qh, result_qsim, result_q        = [], [], []
             result_ph, result_p, result_pgt         = [], [], []
             result_kalman, result_minv, result_c    = [], [], []
-            result_extf                             = []
             
             # Rebuttal additions
-            gp_dist, v_diff, fric_dist = 0, 0, 0
-            fk_count = torch.zeros(bsize).to(device)
+            gp_frame_trace, gd_frame_trace, v_diff_trace, fric_dist_trace   = 0, 0, 0, 0
+            gp_frame_osd, gd_frame_osd, v_diff_osd, fric_dist_osd           = 0, 0, 0, 0
+            fk_count_trace  = torch.zeros(bsize).to(device)
+            fk_count_osd    = torch.zeros(bsize).to(device)
             
             ########## Loop thru all sequences frame-by-frame (batch-wise) ##########
             for f in range(seq_len):
@@ -228,7 +223,6 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
                 if args.use_osd:
                     # OSDNet does its things!
                     kalman, h_gru, PDgains, M_bias, c_prime, fext, jacs = osdnet(state_vector, kalman_in, contact_in, h_gru)
-                    # print(torch.diag(kalman.mean(0)).mean())
                     
                     ######################## Optimal-state filtering ########################
                     """State-transitioning and system observation""" # mid-point method
@@ -289,18 +283,19 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
                         pgt_ra_pre      = (seq_pgt[:,f,...] - seq_pgt[:,f,0:1,:])[:,1:,:]
                         if args.dataset != "sport":
                             loss_p          += compute_RA_p_loss(p_prime_ra, pgt_ra) / bsize
-                            loss_t          += compute_trans_loss(q_prime, qgt) / bsize
+                            loss_t          += compute_trans_loss(p_prime[:,0:1,:], pgt[:,0:1,:]) / bsize
                             loss_psim       += compute_RA_p_loss(p_predict_ra, pgt_ra) / bsize
-                            loss_qsim       += compute_trans_loss(q_predict, qgt) / bsize
+                            loss_qsim       += compute_trans_loss(p_predict[:,0:1,:], pgt[:,0:1,:]) / bsize
                             loss_c          += compute_c_loss(c_prime, cgt) / bsize
                             loss_v          += compute_v_loss(p_prime_ra, p_ra, pgt_ra, pgt_ra_pre) / bsize
                         else:
-                            loss_p          += compute_RA_p_loss(p_prime_ra[:,j17_ids_pr], pgt_ra[:,j17_ids_gt]) / bsize
-                            loss_t          += compute_trans_loss(q_prime, qgt) / bsize
-                            loss_psim       += compute_RA_p_loss(p_predict_ra[:,j17_ids_pr], pgt_ra[:,j17_ids_gt]) / bsize
-                            loss_qsim       += compute_trans_loss(q_predict, qgt) / bsize
+                            loss_p          += compute_RA_p_loss(p_prime_ra[:,j17_ids_pr[1:]-1], pgt_ra[:,j17_ids_gt[1:]-1]) / bsize
+                            loss_t          += compute_trans_loss(p_prime[:,0:1,:], pgt[:,0:1,:]) / bsize
+                            loss_psim       += compute_RA_p_loss(p_predict_ra[:,j17_ids_pr[1:]-1], pgt_ra[:,j17_ids_gt[1:]-1]) / bsize
+                            loss_qsim       += compute_trans_loss(p_predict[:,0:1,:], pgt[:,0:1,:]) / bsize
                             loss_c          += compute_c_loss(c_prime, cgt) / bsize
-                            loss_v          += compute_v_loss(p_prime_ra, p_ra, pgt_ra, pgt_ra_pre) / bsize
+                            loss_v          += compute_v_loss(p_prime_ra[:,j17_ids_pr[1:]-1], p_ra[:,j17_ids_pr[1:]-1],
+                                                              pgt_ra[:,j17_ids_gt[1:]-1], pgt_ra_pre[:,j17_ids_gt[1:]-1]) / bsize
                    
                 ###### Using PD controller #####
                 else:
@@ -348,7 +343,6 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
                         loss_v          += compute_v_loss(p_prime_ra, p_ra, pgt_ra, pgt_ra_pre) / bsize
                 
                 if mode == 'test':
-                    # p_trace         = forward_kinematics(bsize, qh, osdnet.bone_length)
                     p_trace         = forward_kinematics(bsize, qh,  bone_length_h36m)
                     
                     mpjpe_trace     += calculate_mpjpe(pgt, p_trace)
@@ -363,11 +357,11 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
                     grp_osd         += calculate_grp(pgt, p_prime)
                     pck_osd         += calculate_pck(pgt, p_prime)
                     
-                    for th in range(1, 301):
+                    for th in range(1, 2):
                         cp_trace[th-1, ...] += calculate_cp(pgt, p_trace, th)
                         cp_osd[th-1, ...] += calculate_cp(pgt, p_prime, th)
                     
-                     # Saving the poses for testing
+                    # Saving the poses for testing
                     result_qh.append(qh)
                     result_q.append(q_prime)
                     
@@ -381,42 +375,54 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
                         
                     result_minv.append(Minv)
                     result_c.append(c_prime)
-                    result_extf.append(c_prime[:,:,None] * fext)
 
-                    # c_mask_left              = torch.zeros(bsize,3).to(device)
-                    # c_mask_left[pgt[:,3,2] < 0.12,0] = 1
-                    # c_mask_left[pgt[:,4,2] < 0.072,1] = 1
-                    # c_mask_left[pgt[:,5,2] < 0.072,2] = 1
+                    ##### Physics-based metrics
+                    c_mask_left              = torch.zeros(bsize,3).to(device)
+                    c_mask_left[pgt[:,3,2] < 0.12,0] = 1
+                    c_mask_left[pgt[:,4,2] < 0.072,1] = 1
+                    c_mask_left[pgt[:,5,2] < 0.072,2] = 1
                     
-                    # c_mask_right             = torch.zeros(bsize,3).to(device)
-                    # c_mask_right[pgt[:,8,2] < 0.12,0] = 1
-                    # c_mask_right[pgt[:,9,2] < 0.072,1] = 1
-                    # c_mask_right[pgt[:,10,2] < 0.072,2] = 1
+                    c_mask_right             = torch.zeros(bsize,3).to(device)
+                    c_mask_right[pgt[:,8,2] < 0.12,0] = 1
+                    c_mask_right[pgt[:,9,2] < 0.072,1] = 1
+                    c_mask_right[pgt[:,10,2] < 0.072,2] = 1
                     
-                    # p_interest          = p_trace
-                    # # p_interest          = p_prime
                     
-                    # # gp_dist_left        = (c_mask_left * nn.functional.relu(pgt[:,[3,4,5],2] - p_interest[:,[3,4,5],2])).mean(1)  * cgt[:,0]
-                    # # gp_dist_right       = (c_mask_right * nn.functional.relu(pgt[:,[8,9,10],2] - p_interest[:,[8,9,10],2])).mean(1) * cgt[:,1]
-                    # # gp_dist             += ((gp_dist_left + gp_dist_right)/2).mean()
+                    gp_dist_left        = (c_mask_left * nn.functional.relu(pgt[:,[3,4,5],2] - p_trace[:,[3,4,5],2])).mean(1)  * cgt[:,0]
+                    gp_dist_right       = (c_mask_right * nn.functional.relu(pgt[:,[8,9,10],2] - p_trace[:,[8,9,10],2])).mean(1) * cgt[:,1]
+                    gp_frame_trace      += ((gp_dist_left + gp_dist_right)/2).mean()
                     
-                    # gp_dist_left        = (c_mask_left * torch.abs(pgt[:,[3,4,5],2] - p_interest[:,[3,4,5],2])).mean(1)  * cgt[:,0]
-                    # gp_dist_right       = (c_mask_right * torch.abs(pgt[:,[8,9,10],2] - p_interest[:,[8,9,10],2])).mean(1) * cgt[:,1]
-                    # gp_dist             += ((gp_dist_left + gp_dist_right)/2).mean()
+                    gd_dist_left        = (c_mask_left * torch.abs(pgt[:,[3,4,5],2] - p_trace[:,[3,4,5],2])).mean(1)  * cgt[:,0]
+                    gd_dist_right       = (c_mask_right * torch.abs(pgt[:,[8,9,10],2] - p_trace[:,[8,9,10],2])).mean(1) * cgt[:,1]
+                    gd_frame_trace      += ((gd_dist_left + gd_dist_right)/2).mean()
                     
-                    # p_moved1             = torch.sqrt(torch.sum((p_prime - p)**2, dim=-1))
-                    # p_moved2            = torch.sqrt(torch.sum((p_trace - p_trace_pre)**2, dim=-1))
-                    # fric_dist           += compute_fric_loss(cgt, p_moved2, c_mask_left[...,:2], c_mask_right[...,:2]) / bsize
-                    # v_diff              += compute_v_loss(p_moved2, pgt, seq_pgt[:,f,:]) / bsize
+                    p_moved2            = torch.sqrt(torch.sum((p_trace - p_trace_pre)**2, dim=-1))
+                    fric_dist_trace     += compute_fric_loss(cgt, p_moved2, c_mask_left[...,:2], c_mask_right[...,:2]) / bsize
+                    v_diff_trace        += compute_v_loss2(p_moved2, pgt, seq_pgt[:,f,:]) / bsize
+                    mov_left            = cgt[:,0] * p_moved2[:,[3,4,5]].mean(-1) * c_mask_left[:,1]
+                    mov_right           = cgt[:,1] * p_moved2[:,[8,9,10]].mean(-1) * c_mask_right[:,1]
+                    fk_count_trace      += ((mov_left>0.02) + (mov_right>0.02))
                     
-                    # mov_left            = cgt[:,0] * p_moved2[:,[3,4,5]].mean(-1) * c_mask_left[:,1]
-                    # mov_right           = cgt[:,1] * p_moved2[:,[8,9,10]].mean(-1) * c_mask_right[:,1]
                     
-                    # skate               = (mov_left>0.02) + (mov_right>0.02)
-                    # fk_count            += skate
+                    gp_dist_left        = (c_mask_left * nn.functional.relu(pgt[:,[3,4,5],2] - p_prime[:,[3,4,5],2])).mean(1)  * cgt[:,0]
+                    gp_dist_right       = (c_mask_right * nn.functional.relu(pgt[:,[8,9,10],2] - p_prime[:,[8,9,10],2])).mean(1) * cgt[:,1]
+                    gp_frame_osd        += ((gp_dist_left + gp_dist_right)/2).mean()
+                    
+                    gd_dist_left        = (c_mask_left * torch.abs(pgt[:,[3,4,5],2] - p_prime[:,[3,4,5],2])).mean(1)  * cgt[:,0]
+                    gd_dist_right       = (c_mask_right * torch.abs(pgt[:,[8,9,10],2] - p_prime[:,[8,9,10],2])).mean(1) * cgt[:,1]
+                    gd_frame_osd        += ((gd_dist_left + gd_dist_right)/2).mean()
+                    
+                    p_moved2            = torch.sqrt(torch.sum((p_prime - p)**2, dim=-1))
+                    fric_dist_osd       += compute_fric_loss(cgt, p_moved2, c_mask_left[...,:2], c_mask_right[...,:2]) / bsize
+                    v_diff_osd          += compute_v_loss2(p_moved2, pgt, seq_pgt[:,f,:]) / bsize
+                    mov_left            = cgt[:,0] * p_moved2[:,[3,4,5]].mean(-1) * c_mask_left[:,1]
+                    mov_right           = cgt[:,1] * p_moved2[:,[8,9,10]].mean(-1) * c_mask_right[:,1]
+                    fk_count_osd        += ((mov_left>0.02) + (mov_right>0.02))
+                    
                     
                 # Updating the states
                 qd, q, p, c = qd_prime, q_prime, p_prime, c_prime
+                p_trace_pre = p_trace
                 # print("--- %s seconds ---" % (time.time() - start_time))
                 
             if mode == 'train':
@@ -466,8 +472,6 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
                 result_minv_all.append(result_minv)
                 result_c        = torch.stack(result_c, dim=1)
                 result_c_all.append(result_c)
-                result_extf     = torch.stack(result_extf, dim=1)
-                result_extf_all.append(result_extf)
                 
                 # Appending total evaluation metrics (for TRACE)
                 total_mpjpe_trace.append(mpjpe_trace/seq_len)       
@@ -487,10 +491,19 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
                 total_accel_osd.append(calculate_accel(result_pgt, result_p))
                 total_cp_osd.append(cp_osd * 1e2/seq_len)
                 
-                # total_gp_osd.append(gp_dist.detach().cpu()/seq_len)
-                # total_fric_osd.append(fric_dist.detach().cpu()/seq_len)
-                # total_v_osd.append(v_diff.detach().cpu()/seq_len)
-                # total_fk_osd.append((fk_count.detach().cpu()/seq_len).mean())
+                # Appending total physics-based metrics (for TRACE)
+                total_gp_trace.append(gp_frame_trace.detach().cpu()/seq_len)
+                total_gd_trace.append(gd_frame_trace.detach().cpu()/seq_len)
+                total_fric_trace.append(fric_dist_trace.detach().cpu()/seq_len)
+                total_v_trace.append(v_diff_trace.detach().cpu()/seq_len)
+                total_fk_trace.append((fk_count_trace.detach().cpu()/seq_len).mean())
+                
+                # Appending total physics-based metrics (for OSD)
+                total_gp_osd.append(gp_frame_osd.detach().cpu()/seq_len)
+                total_gd_osd.append(gd_frame_osd.detach().cpu()/seq_len)
+                total_fric_osd.append(fric_dist_osd.detach().cpu()/seq_len)
+                total_v_osd.append(v_diff_osd.detach().cpu()/seq_len)
+                total_fk_osd.append((fk_count_osd.detach().cpu()/seq_len).mean())
         
         if mode == 'train':
             scheduler.step() # LR scheduler counts
@@ -538,16 +551,10 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
         #             round(total_mpjpe_osd[i,...].item(),1),
         #             round(mpjpe_gain,1),
         #             str(test_set[i][-1]))
-        
-        # total_gp_osd            = torch.cat(total_gp_osd, dim=0)
-        # print(np.array(total_gp_osd).mean())
-        # print(np.array(total_fric_osd).mean()/2)
-        # print(np.array(total_v_osd).mean()/26)
-        # print(np.array(total_fk_osd).mean())
     
         print()
+        print("Distance-based metrics")
         print("  Methods | MPJPE | MPJPE-G | MPJPE-PA | PCK  | CPS | GRP   | Accel |")
-        # print("  Methods | MPJPE | MPJPE-G | MPJPE-PA | PCK  | GRP   | Accel |")
         print(("  TRACE   | " 
             + str(round((total_mpjpe_trace.mean(0)).item(), 1)) + "  | " 
             + str(round((total_mpjpe_g_trace.mean(0)).item(), 1)) + "   | " 
@@ -564,6 +571,21 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
             + str(round((auc_cps_osd),1)) + " | "
             + str(round((total_grp_osd.mean(0)).item(),1)) + "  | "
             + str(round((total_accel_osd.mean(0)).item(),1))+ "   | "))
+        print()
+        print("Physics-based metrics")
+        print( "  Methods | GP  | GD   | Fric | Vel  | Skate |")
+        print(("  TRACE   | " 
+            + str(round(np.array(total_gp_trace).mean()*1e3, 1)) + " | " 
+            + str(round(np.array(total_gd_trace).mean()*1e3, 1)) + " | " 
+            + str(round(np.array(total_fric_trace).mean()*1e3/2, 1)) + " | "
+            + str(round(np.array(total_v_trace).mean()*1e3/26, 1))+ " | "
+            + str(round(np.array(total_fk_trace).mean()*1e2, 1))+ "  | "))
+        print(("  OSDNet  | " 
+            + str(round(np.array(total_gp_osd).mean()*1e3, 1)) + " | " 
+            + str(round(np.array(total_gd_osd).mean()*1e3, 1)) + "  | " 
+            + str(round(np.array(total_fric_osd).mean()*1e3/2, 1)) + " | "
+            + str(round(np.array(total_v_osd).mean()*1e3/26, 1))+ " | "
+            + str(round(np.array(total_fk_osd).mean()*1e2, 1))+ "  | "))
         print()
     
         if args.use_wandb:
@@ -590,22 +612,19 @@ def Processor_OSDNet(args, osdnet, model_path, mode):
             
         result_minv_all     = torch.cat(result_minv_all, dim=0)
         result_c_all        = torch.cat(result_c_all, dim=0)
-        result_extf_all     = torch.cat(result_extf_all, dim=0)
         
         
         return [result_qh_all, result_q_all, result_qsim_all,
                 result_ph_all, result_p_all, result_pgt_all,
-                result_kalman_all, result_minv_all, result_c_all,
-                result_extf_all]
-
+                result_kalman_all, result_minv_all, result_c_all]
 
 def rendering_results_plt(args, results, sample_id, res=10, animation=True, interactive=False, show_filters=False):
     
     print('--- Loading test data. ---')
     test_set        = torch.load("datasets/" + args.dataset + "/" + experiment + "/test_set.pt")
     # data_path = "/mimer/NOBACKUP/groups/alvis_cvl/cuole/datasets/h36m/processed/"
-    data_path = "/mimer/NOBACKUP/groups/alvis_cvl/cuole/datasets/fit3d/train/extracted/"
-    # data_path       = "/cephyr/users/lecu/Alvis/TRACE_results/"
+    # data_path = "/mimer/NOBACKUP/groups/alvis_cvl/cuole/datasets/fit3d/train/extracted/"
+    data_path       = "/cephyr/users/lecu/Alvis/TRACE_results/"
     if animation or interactive:
         fig             = plt.figure(figsize=(10,10))
         ax1             = fig.add_subplot(111, projection='3d', computed_zorder=False)
@@ -715,8 +734,8 @@ def rendering_results_plt(args, results, sample_id, res=10, animation=True, inte
         # ax1.set_zlabel('z')
         
         # rgb_img     = plt.imread(data_path + info[0] + "/" + info[1] + "/imageSequence/60457274/img_" + f"{(info[2]*2+2*f+1):06d}" + ".jpg")
-        rgb_img     = plt.imread(data_path + info[1] + "_frames" + f"/{(info[2]*2+2*f+1):08d}" + ".jpg")
-        # rgb_img     = plt.imread(data_path + "CAM3_rotated_video_5_frames/" + f"{(info[2]*2+2*f+1):08d}" + ".jpg")
+        # rgb_img     = plt.imread(data_path + info[1] + "_frames" + f"/{(info[2]*2+2*f+1):08d}" + ".jpg")
+        rgb_img     = plt.imread(data_path + "CAM3_rotated_video_5_frames/" + f"{(info[2]*2+2*f+1):08d}" + ".jpg")
         
         # print(rgb_img.shape)
         # img         = cv2.resize(rgb_img, (1600, 1000), interpolation = cv2.INTER_LINEAR)
@@ -908,58 +927,6 @@ def rendering_results_plt(args, results, sample_id, res=10, animation=True, inte
         plt.close()
 
 
-def force_plots(args, results, sample_id):
-    print('--- Loading test data. ---')
-    test_set        = torch.load("datasets/" + args.dataset + "/" + experiment + "/test_set.pt")
-    # print(len(results[9]))
-    # result_extf_np.append(results[9].detach().cpu())
-    
-    result_extf_np  = []
-    for s in range(len(sample_id)):
-    #     scale               = 400
-    #     # print(results[9].shape)
-    #     # result_qh_np.append(results[0][sample_id[s],...].detach().cpu())
-    #     # result_q_np.append(results[1][sample_id[s],...].detach().cpu())
-    #     # result_qsim_np.append(results[2][sample_id[s],...].detach().cpu())
-    #     # result_ph_np.append(results[3][sample_id[s],...].detach().cpu() * scale)
-    #     # result_p_np.append(results[4][sample_id[s],...].detach().cpu() * scale)
-    #     # result_pgt_np.append(results[5][sample_id[s],...].detach().cpu() * scale)
-    #     # result_kalman_np.append(results[6][sample_id[s],...].detach().cpu())
-    #     # result_minv_np.append(results[7][sample_id[s],...].detach().cpu())
-    #     # result_c_np.append(results[8][sample_id[s],...].detach().cpu())
-        result_extf_np.append(results[9][sample_id[s],...].detach().cpu())
-        info                = test_set[sample_id[s]][-1]
-        print("Test sample: " + str(info))
-    result_extf_np         = torch.cat(result_extf_np)
-    print(result_extf_np.shape)
-    
-    # fig = plt.figure()
-    # ax1 = fig.add_subplot(111)
-    # ax1.plot(result_extf_np[50:,0,0])
-    # ax1.plot(result_extf_np[50:,1,0])
-    # plt.savefig('forces/x.png')
-    
-    # fig = plt.figure()
-    # ax2 = fig.add_subplot(111)
-    # ax2.plot(result_extf_np[50:,0,1])
-    # ax2.plot(result_extf_np[50:,1,1])
-    # plt.savefig('forces/y.png')
-    
-    fig = plt.figure()
-    ax3 = fig.add_subplot(111)
-    ax3.set_ylim([0, 10.0])
-    ax3.set_ylabel('Nm/kg')
-    ax3.set_xlabel('ms')
-    
-    ax3.plot(result_extf_np[60:,0,2], label='Left', linewidth=2)
-    ax3.plot(result_extf_np[60:,1,2], label='Right', linewidth=2)
-    ax3.legend(loc='best')
-    ax3.set_title('Vertical-axis reaction forces')
-    
-    plt.savefig('forces/z.png', dpi=400, bbox_inches='tight')
-    
-    plt.close()
-    
     
 if __name__ == "__main__":
     
@@ -1004,16 +971,16 @@ if __name__ == "__main__":
     if args.train_models:
         Processor_OSDNet(args, osdnet, model_path, mode='train')
     results = Processor_OSDNet(args, osdnet, model_path, mode='test')
-    torch.save(results, "saved_results/" + args.dataset + "/" + args.dataset + "_results.pth")
+    # torch.save(results, "saved_results/" + args.dataset + "/" + args.dataset + "_results.pth")
     
     # shutil.rmtree('tmp_imgs')
     # os.mkdir('tmp_imgs')
     # results = torch.load("saved_results/" + args.dataset + "/" + args.dataset + "_results.pth")
     # # # # samples         = [129, 130, 208, 324, 327, 330, 335, 336, 337, 340, 341, 342, 388, 390, 394]
-    # # samples  = [110]
+    # samples  = [110]
     # # # for s in range(len(samples)):
     # # # samples  = [324]
-    # samples     = [97]
+    # # samples     = [97]
     # rendering_results_plt(args, results, samples, res=10,
     #                     animation=True, interactive=False, show_filters=False)
     # # # force_plots(args, results, samples)
