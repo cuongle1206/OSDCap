@@ -8,7 +8,6 @@
 Optimal-state Dynamics Estimation for Physics-based Human Motion Capture from Videos
 
 [![Paper](https://img.shields.io/badge/arXiv-2410.07795-red)](https://arxiv.org/abs/2410.07795)
-... Inprogress ...
 
 ## Dependencies
 
@@ -99,11 +98,11 @@ python main.py -dst h36m
 ## Citation
 If you find our work helpful, please cite the paper as
 ```bibtex
-@article{le2024_osdcap,
-  title = {Optimal-State Dynamics Estimation for Physics-based Human Motion Capture from Videos},
-  author = {Le, Cuong and Johannson, Viktor and Kok, Manon and Wandt, Bastian},
-  journal = {Arxiv},
-  year = {2024}
+@inproceedings{le2024_osdcap,
+  title     = {Optimal-State Dynamics Estimation for Physics-based Human Motion Capture from Videos},
+  author    = {Le, Cuong and Johannson, Viktor and Kok, Manon and Wandt, Bastian},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2024}
 }
 ```
 
