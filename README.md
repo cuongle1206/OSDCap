@@ -1,13 +1,13 @@
 
-<div align="center">
-<img src="Figures/Teaser.png" width="800" alt="logo"/>
-</div>
-
-# Official Implementation of OSDCap
+# Official implementation of OSDCap
 
 Optimal-state Dynamics Estimation for Physics-based Human Motion Capture from Videos
 
-[![Paper](https://img.shields.io/badge/arXiv-2410.07795-red)](https://arxiv.org/abs/2410.07795)
+<div align="center">
+<img src="Figures/Teaser.png" width="1000" alt="logo"/>
+</div>
+
+[![Paper](https://img.shields.io/badge/arXiv-2410.07795-red)](https://arxiv.org/abs/2410.07795) [![NeurIPS](https://img.shields.io/badge/Poster-NeurIPS_2024-indigo?logo=openreview)](https://neurips.cc/virtual/2024/poster/95155)
 
 ## Dependencies
 
