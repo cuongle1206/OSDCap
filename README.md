@@ -92,8 +92,9 @@ To test the trained models on a specific dataset
 python main.py -dst h36m
 ```
 
-## Visualization
+## Published data
 
+Data loaders, pre-extracted inputs from TRACE, and trained models can now be found in our project [Zenodo](https://zenodo.org/records/18802619?token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6ImVkMTU1ZWUwLWUzMGMtNDM1YS05OTYyLWM3NTk3NGYyN2Y0MCIsImRhdGEiOnt9LCJyYW5kb20iOiJhNGRlYWVhMTcxNzJkMzdiNGUyZTBjMDg5OTAyNTgyMiJ9._dxgqkoKwxuvyn3OUGOKEdYUL0o4QTSs8tn4XOHqmlFFRifUYORe5oT78UBbKNH3mzPOKddR84yPAjhK6TtS3A).
 
 ## Citation
 If you find our work helpful, please cite the paper as
